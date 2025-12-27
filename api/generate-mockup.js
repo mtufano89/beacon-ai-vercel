@@ -1,13 +1,20 @@
-// Vercel Serverless Function - Ultra Simple Version
+// Vercel Serverless Function - Simplified
 const Anthropic = require('@anthropic-ai/sdk');
+const nodemailer = require('nodemailer');
 
 export default async function handler(req, res) {
+    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'Method not allowed' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ success: false, message: 'Method not allowed' });
+    }
 
     try {
         const { fullName, businessName, email, businessType, description, goals, vibe } = req.body;
@@ -22,7 +29,10 @@ export default async function handler(req, res) {
 
         console.log(`🎨 Generating mockup for: ${fullName} - ${businessName}`);
 
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        // Initialize Anthropic
+        const anthropic = new Anthropic({ 
+            apiKey: process.env.ANTHROPIC_API_KEY 
+        });
 
         const prompt = `You are an expert web designer at Shoreline Dev Co.
 
@@ -39,15 +49,15 @@ Create a detailed website design concept. Respond ONLY with valid JSON:
 
 {
     "businessName": "${businessName}",
-    "designOverview": "2-3 sentence description",
-    "pages": ["array", "of", "pages"],
-    "features": ["array", "of", "features", "5-7 items"],
+    "designOverview": "2-3 sentence description of the overall design direction",
+    "pages": ["array", "of", "recommended", "pages"],
+    "features": ["array", "of", "key", "features", "5-7 items"],
     "colors": [
         {"name": "Primary", "hex": "#123456"},
         {"name": "Secondary", "hex": "#654321"},
         {"name": "Accent", "hex": "#abcdef"}
     ],
-    "ctas": ["array", "of", "ctas"],
+    "ctas": ["array", "of", "call-to-action", "ideas"],
     "estimatedCost": "$399 - $999",
     "turnaroundTime": "2-3 days to 1-2 weeks"
 }
@@ -68,51 +78,70 @@ Return ONLY the JSON.`;
 
         console.log(`✅ Mockup generated`);
 
-        // HubSpot - synchronous
-        try {
-            console.log('📊 Sending to HubSpot...');
-            
-            const hubspotData = {
-                properties: {
-                    email: email,
-                    firstname: firstName,
-                    lastname: lastName,
-                    company: businessName,
-                    lifecyclestage: 'lead',
-                    hs_lead_status: 'NEW'
-                }
-            };
-
-            const hubspotResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${process.env.HUBSPOT_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(hubspotData)
-            });
-
-            if (hubspotResponse.ok) {
-                const result = await hubspotResponse.json();
-                console.log(`📊 ✅ HubSpot contact created: ${result.id}`);
-            } else if (hubspotResponse.status === 409) {
-                console.log(`📊 Contact already exists (409) - this is fine`);
-            } else {
-                const errorText = await hubspotResponse.text();
-                console.log(`📊 ⚠️ HubSpot error: ${errorText}`);
-            }
-        } catch (hubspotError) {
-            console.log(`📊 ❌ HubSpot failed: ${hubspotError.message}`);
-        }
+        // Wait for HubSpot and SMS to complete
+        await Promise.allSettled([
+            sendToHubSpot(email, firstName, lastName, businessName),
+            sendSMS(fullName, businessName, email, mockup.estimatedCost)
+        ]);
 
         return res.json({ success: true, mockup });
 
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('Error:', error);
         return res.status(500).json({ 
             success: false, 
             message: 'Failed to generate mockup',
             error: error.message 
         });
+    }
+}
+
+async function sendToHubSpot(email, firstName, lastName, businessName) {
+    try {
+        const hubspotData = {
+            properties: {
+                email, firstname: firstName, lastname: lastName,
+                company: businessName, lifecyclestage: 'lead', hs_lead_status: 'NEW'
+            }
+        };
+
+        const response = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.HUBSPOT_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(hubspotData)
+        });
+
+        if (response.ok) {
+            console.log('📊 HubSpot: Contact created');
+        } else if (response.status === 409) {
+            console.log('📊 HubSpot: Contact exists (409)');
+        }
+    } catch (error) {
+        console.error('📊 HubSpot failed:', error.message);
+    }
+}
+
+async function sendSMS(fullName, businessName, email, cost) {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.GMAIL_USER,
+                pass: process.env.GMAIL_PASSWORD
+            }
+        });
+
+        await transporter.sendMail({
+            from: '"Shoreline" <support@shorelinedevco.com>',
+            to: '2036051211@vtext.com',
+            subject: '',
+            text: `🚨 NEW LEAD: ${fullName} - ${businessName} (${email}) - ${cost}`
+        });
+        console.log('📱 SMS sent');
+    } catch (error) {
+        console.error('📱 SMS failed:', error.message);
     }
 }
