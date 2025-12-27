@@ -1,5 +1,6 @@
 // Vercel Serverless Function - Simplified
-const Anthropic = require('@anthropic-ai/sdk');
+import Anthropic from "@anthropic-ai/sdk";
+
 const nodemailer = require('nodemailer');
 
 export default async function handler(req, res) {
