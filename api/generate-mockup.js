@@ -1,7 +1,8 @@
 // Vercel Serverless Function - Simplified
 import Anthropic from "@anthropic-ai/sdk";
 
-const nodemailer = require('nodemailer');
+import nodemailer from "nodemailer";
+
 
 export default async function handler(req, res) {
     // Enable CORS
