@@ -78,11 +78,11 @@ Return ONLY the JSON.`;
 
         console.log(`✅ Mockup generated`);
 
-        // HubSpot (non-blocking)
-        sendToHubSpot(email, firstName, lastName, businessName).catch(console.error);
-        
-        // SMS (non-blocking)
-        sendSMS(fullName, businessName, email, mockup.estimatedCost).catch(console.error);
+        // Wait for HubSpot and SMS to complete
+        await Promise.allSettled([
+            sendToHubSpot(email, firstName, lastName, businessName),
+            sendSMS(fullName, businessName, email, mockup.estimatedCost)
+        ]);
 
         return res.json({ success: true, mockup });
 
