@@ -1,6 +1,7 @@
 {
   "name": "beacon-ai-vercel",
   "version": "1.0.0",
+  "type": "module",
   "description": "Shoreline Dev Co - Beacon AI on Vercel",
   "main": "api/generate-mockup.js",
   "dependencies": {
@@ -11,3 +12,4 @@
     "node": ">=18.0.0"
   }
 }
+
